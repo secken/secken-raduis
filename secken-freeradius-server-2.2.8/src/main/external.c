@@ -11,13 +11,13 @@
 #include "list.h"
 #include "secken_user_list.h"
 
-static int g_result_interval;
-static int g_timeout;
+static int g_result_interval = 1;
+static int g_timeout = 30;
 static char g_auth_url[1024];
 static char g_result_url[1024];
 static char g_power_id[128];
 static char g_power_key[128];
-static int g_accept_cache_enable;
+static int g_accept_cache_enable = 0;
 static int g_accept_cache_time;
 static int g_accept_cache_retry;
 
@@ -465,8 +465,10 @@ static int radiusd_ext_config_init(char *conf_file)
 		g_accept_cache_enable = 1;		
 	else if (strcpy(val, "no"))
 		g_accept_cache_enable = 0;		
-	else 
+	else {
+		fprintf(stderr, "option accept_cache_enable error in %s.\n", conf_file);
 		return -1;
+	}
 
 	if (g_accept_cache_enable) {
 		val = ccl_get(&conf, "accept_cache_time");
