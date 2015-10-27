@@ -133,6 +133,8 @@ static auth_handle_t* radiusd_ext_create_data(
 	memcpy(&hdl->packet, request->packet, sizeof(RADIUS_PACKET));	
 	copy_val_pair(&hdl->packet, request->packet);
 
+	hdl->retry_count = 0;
+
 	return hdl;
 }
 
@@ -311,7 +313,8 @@ static int is_user_accepted(char *username)
 	strcpy(hdl.username, username);
 	found = ulist_find_data(&hdl, auth_hdl_comp);
 	if (NULL != found) {
-		if (STATE_ACCEPTED == found->state) {
+		if (STATE_ACCEPTED == found->state && 
+			found->retry_count < g_accept_cache_retry) {
 			radlog(L_INFO, "[%s] is accepted, accept user.\n", found->username);
 			fr_event_delete(found->el, &found->ev);
 			ulist_del(found, auth_hdl_comp);
@@ -406,42 +409,58 @@ static int radiusd_ext_config_init(char *conf_file)
 	conf.str_char = '"';
 
 	ret = ccl_parse(&conf, conf_file);
-	if (0 != ret)
+	if (0 != ret) {
+		fprintf(stderr, "prase %s error.\n", conf_file);
 		return -1;
+	}
 
 	val = ccl_get(&conf, "timeout");
-	if (!val || !is_digit_str(val)) 
+	if (!val || !is_digit_str(val)) {
+		fprintf(stderr, "option timeout err in %s.\n", conf_file);
 		return -1;
+	}
 	sscanf(val, "%d", &g_timeout);
 
 	val = ccl_get(&conf, "result_req_interval");
-	if (!val || !is_digit_str(val)) 
+	if (!val || !is_digit_str(val))  {
+		fprintf(stderr, "option result_req_interval err in %s.\n", conf_file);
 		return -1;
+	}
 	sscanf(val, "%d", &g_result_interval);
 
 	val = ccl_get(&conf, "auth_req_url");
-	if (!val || strlen(val) > sizeof(g_auth_url)) 
+	if (!val || strlen(val) > sizeof(g_auth_url)) {
+		fprintf(stderr, "option auth_req_url error in %s.\n", conf_file);
 		return -1;
+	}
 	strcpy(g_auth_url, val);
 
 	val = ccl_get(&conf, "result_req_url");
-	if (!val || strlen(val) > sizeof(g_result_url)) 
+	if (!val || strlen(val) > sizeof(g_result_url)) {
+		fprintf(stderr, "option result_req_url error in %s.\n", conf_file);
 		return -1;
+	}
 	strcpy(g_result_url, val);
 
 	val = ccl_get(&conf, "power_id");
-	if (!val || strlen(val) > sizeof(g_power_id)) 
+	if (!val || strlen(val) > sizeof(g_power_id)) {
+		fprintf(stderr, "option power_id error in %s.\n", conf_file);
 		return -1;
+	}	
 	strcpy(g_power_id, val);
 
 	val = ccl_get(&conf, "power_key");
-	if (!val || strlen(val) > sizeof(g_power_key)) 
+	if (!val || strlen(val) > sizeof(g_power_key)) {
+		fprintf(stderr, "option power_key error in %s.\n", conf_file);
 		return -1;
+	}
 	strcpy(g_power_key, val);
 
 	val = ccl_get(&conf, "accept_cache_enable");
-	if (!val) 
+	if (!val) {
+		fprintf(stderr, "option accept_cache_enable error in %s.\n", conf_file);
 		return -1;
+	}
 	if (strcpy(val, "yse"))
 		g_accept_cache_enable = 1;		
 	else if (strcpy(val, "no"))
@@ -451,13 +470,17 @@ static int radiusd_ext_config_init(char *conf_file)
 
 	if (g_accept_cache_enable) {
 		val = ccl_get(&conf, "accept_cache_time");
-		if (!val || !is_digit_str(val)) 
+		if (!val || !is_digit_str(val)) {
+			fprintf(stderr, "option accept_cache_time error in %s.\n", conf_file);
 			return -1;
+		}
 		sscanf(val, "%d", &g_accept_cache_time);
 
 		val = ccl_get(&conf, "accept_cache_retry");
-		if (!val || !is_digit_str(val)) 
+		if (!val || !is_digit_str(val)) {
+			fprintf(stderr, "option accept_cache_retry error in %s.\n", conf_file);
 			return -1;
+		}
 		sscanf(val, "%d", &g_accept_cache_retry);
 	}
 
